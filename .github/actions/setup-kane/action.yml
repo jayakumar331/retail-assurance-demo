@@ -64,5 +64,3 @@ runs:
         [ -n "$KANE_FOLDER_ID" ]  && ARGS+=(--folder-id  "$KANE_FOLDER_ID")
         kane-cli "${ARGS[@]}"
         kane-cli whoami
-
-https://test-manager.lambdatest.com/projects/01KS4M1C2SEEHGQSKF6VRV91YE/test-cases?folder=01M25HBH6VN996SN5C6E33BGR7
