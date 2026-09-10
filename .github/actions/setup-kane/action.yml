@@ -53,13 +53,13 @@ runs:
     - name: Authenticate
       shell: bash
       env:
-        KANE_USERNAME: ${{ inputs.username }}
-        KANE_ACCESS_KEY: ${{ inputs.access-key }}
-        KANE_PROJECT_ID: ${{ inputs.project-id }}
-        KANE_FOLDER_ID: ${{ inputs.folder-id }}
+        LT_USERNAME: ${{ inputs.username }}
+        LT_ACCESS_KEY: ${{ inputs.access-key }}
+        TESTMUAI_PROJECT_ID: ${{ inputs.project-id }}
+       TESTMUAI_FOLDER_ID: ${{ inputs.folder-id }}
       run: |
         set -euo pipefail
-        ARGS=(login --username "$KANE_USERNAME" --access-key "$KANE_ACCESS_KEY")
+        ARGS=(login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY")
         [ -n "$KANE_PROJECT_ID" ] && ARGS+=(--project-id "$KANE_PROJECT_ID")
         [ -n "$KANE_FOLDER_ID" ]  && ARGS+=(--folder-id  "$KANE_FOLDER_ID")
         kane-cli "${ARGS[@]}"
