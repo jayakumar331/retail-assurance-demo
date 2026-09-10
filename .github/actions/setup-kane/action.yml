@@ -56,7 +56,7 @@ runs:
         LT_USERNAME: ${{ inputs.username }}
         LT_ACCESS_KEY: ${{ inputs.access-key }}
         TESTMUAI_PROJECT_ID: ${{ inputs.project-id }}
-       TESTMUAI_FOLDER_ID: ${{ inputs.folder-id }}
+        TESTMUAI_FOLDER_ID: ${{ inputs.folder-id }}
       run: |
         set -euo pipefail
         ARGS=(login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY")
