@@ -60,7 +60,7 @@ runs:
       run: |
         set -euo pipefail
         ARGS=(login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY")
-        [ -n "$KANE_PROJECT_ID" ] && ARGS+=(--project-id "$KANE_PROJECT_ID")
-        [ -n "$KANE_FOLDER_ID" ]  && ARGS+=(--folder-id  "$KANE_FOLDER_ID")
+        [ -n "$TESTMUAI_PROJECT_ID" ] && ARGS+=(--project-id "$TESTMUAI_PROJECT_ID")
+        [ -n "$TESTMUAI_FOLDER_ID" ]  && ARGS+=(--folder-id  "$TESTMUAI_FOLDER_ID")
         kane-cli "${ARGS[@]}"
         kane-cli whoami
