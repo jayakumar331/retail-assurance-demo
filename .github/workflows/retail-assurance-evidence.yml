@@ -128,7 +128,9 @@ jobs:
     name: 2 · Evidence — execute and seal the pack
     needs: assurance
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Authoring is serial (see Collect members) at ~6 min a member, so a run that
+    # authors the whole suite needs hours; replay-only runs finish far sooner.
+    timeout-minutes: 240
     outputs:
       pack: ${{ steps.pack.outputs.path }}
       status: ${{ steps.execute.outputs.status }}
@@ -147,6 +149,23 @@ jobs:
         with:
           name: assurance-graph-${{ github.run_number }}
 
+      # Recorded steps (output-<stem>/ next to each test) are what let a member
+      # replay instead of re-authoring. Without them every run authors all members.
+      - name: Restore recorded steps
+        uses: actions/cache/restore@v4
+        with:
+          path: .testmuai/tests/output-*
+          key: kane-recordings-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: kane-recordings-
+
+      # testrun has no --variables flag: members read .testmuai/variables/*.json,
+      # which is gitignored, so the runner starts with no test data at all.
+      - name: Provision test data
+        env:
+          RETAIL_SHOPPER_EMAIL: ${{ secrets.RETAIL_SHOPPER_EMAIL }}
+          RETAIL_SHOPPER_PASSWORD: ${{ secrets.RETAIL_SHOPPER_PASSWORD }}
+        run: python3 scripts/test_data.py provision
+
       - name: Collect members
         id: members
         run: |
@@ -155,10 +174,24 @@ jobs:
           echo "count=$(wc -l < members.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
           cat members.txt
 
+          # Authoring takes the test's write lock; a second worker authoring at the
+          # same time drops to readonly and its work is discarded. Author serially,
+          # and only go parallel when every member is a pure replay.
+          UNAUTHORED=0
+          while read -r t; do
+            stem=$(basename "$t" _test.md)
+            [ -f "$(dirname "$t")/output-$stem/.internal/meta.json" ] || UNAUTHORED=$((UNAUTHORED + 1))
+          done < members.txt
+          PARALLEL=$([ "$UNAUTHORED" -eq 0 ] && echo 2 || echo 1)
+          echo "parallel=$PARALLEL" >> "$GITHUB_OUTPUT"
+          echo "Unauthored members: $UNAUTHORED -> --parallel $PARALLEL"
+
       # Plan and validate before spending a browser minute.
       - name: Preflight
         run: |
           set -euo pipefail
+          # A member whose {{variable}} nothing supplies cannot pass on any re-run.
+          python3 scripts/test_data.py check members.txt
           mapfile -t TESTS < members.txt
           kane-cli testrun run "${TESTS[@]}" --dry-run \
             --name "Retail preflight #${{ github.run_number }}"
@@ -167,10 +200,13 @@ jobs:
         id: execute
         run: |
           set -uo pipefail
+          # Actions runs this as `bash -e`. Without +e the first failing suite
+          # aborts the script before PIPESTATUS is read.
+          set +e
           mapfile -t TESTS < members.txt
           kane-cli testrun run "${TESTS[@]}" \
             --name "Retail regression #${{ github.run_number }} (${GITHUB_SHA:0:7})" \
-            --parallel 2 \
+            --parallel ${{ steps.members.outputs.parallel }} \
             --on-failure continue \
             --headless \
             | tee testrun.ndjson
@@ -178,8 +214,15 @@ jobs:
           echo "status=$CODE" >> "$GITHUB_OUTPUT"
           # A failing test still produces a valid pack — keep going and let the
           # coverage gate decide. Only auth/infra (2) stops the pipeline here.
-          [ "$CODE" -eq 2 ] && exit 2
+          if [ "$CODE" -eq 2 ]; then exit 2; fi
           exit 0
+
+      - name: Save recorded steps
+        if: always() && steps.execute.outcome != 'skipped'
+        uses: actions/cache/save@v4
+        with:
+          path: .testmuai/tests/output-*
+          key: kane-recordings-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Locate the sealed pack
         id: pack

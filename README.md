@@ -38,6 +38,7 @@ requirements/retail-storefront.md
 | `.github/actions/setup-kane/action.yml` | Installs kane-cli, does non-interactive auth, points at the runner's Chrome. |
 | `scripts/assurance.sh` | Ingest → extract → review → design, with correct handling of exit code 3. |
 | `scripts/coverage_gate.py` | Turns the coverage ribbon into a job summary and a pass/fail gate. |
+| `scripts/test_data.py`, `test-data/retail.json` | Supplies the tests' `{{variables}}` on the runner and refuses to run a suite that is missing any. |
 
 ## Setup
 
@@ -49,8 +50,25 @@ Add four repository secrets (Settings → Secrets and variables → Actions):
 | `LT_ACCESS_KEY` | TestMu AI / LambdaTest profile |
 | `TESTMUAI_PROJECT_ID` | `kane-cli projects list` |
 | `TESTMUAI_FOLDER_ID` | `kane-cli folders list` |
+| `RETAIL_SHOPPER_EMAIL` | An account you registered once on the storefront — sign-in and signed-in checkout tests use it |
+| `RETAIL_SHOPPER_PASSWORD` | That account's password |
 
 Then push, open a PR against `requirements/`, or run it manually from the Actions tab.
+
+### Test data
+
+Designed tests carry `{{variables}}` for data the requirements never pinned. `testrun` reads them
+from `.testmuai/variables/*.json`, which is gitignored, so the evidence job builds
+`.testmuai/variables/ci.json` with `scripts/test_data.py provision` from:
+
+- `test-data/retail.json` — non-secret values (product, quantity, currency, search term, …)
+- the two shopper-account secrets above
+- per-run unique `new_email` / `newsletter_email` / `new_password`, so registration and
+  subscribe never collide with a previous run
+
+Preflight then runs `scripts/test_data.py check`: if any member uses a variable nothing supplies,
+the job stops with the variable name and the tests that need it, before a browser starts.
+`.testmuai/context.md` maps prose like "valid existing credentials" onto the same variables.
 
 ## The three stages
 
@@ -89,7 +107,12 @@ kane-cli evidence validate .testmuai/evidence/<id>.evidence --profile L1 --json
 ```
 
 `testrun` runs M tests as **one execution**, which means one sealed pack for the whole retail
-suite rather than N loose artifacts. The pack is uploaded with 90-day retention — that's the
+suite rather than N loose artifacts.
+
+The workflow picks `--parallel` itself: `1` while any member still has to be authored (authoring
+holds the test's write lock, and a second worker authoring at the same time drops to readonly and
+throws its work away), `2` once every member replays. Recorded steps are cached between runs so
+later runs replay instead of re-authoring. The pack is uploaded with 90-day retention — that's the
 thing you hand a prospect's QA lead or drop into an audit.
 
 To open a downloaded pack:

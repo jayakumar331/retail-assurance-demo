@@ -1,0 +1,12 @@
+{
+  "_comment": "Non-secret test data for the designed retail suite. scripts/test_data.py merges this with the shopper-account secrets and per-run unique values into .testmuai/variables/ci.json. Add a key here when preflight reports a variable no one supplies.",
+  "product_with_required_options": { "value": "Apple Cinema 30\"" },
+  "required_option_name": { "value": "Size" },
+  "valid_quantity_n": { "value": "3" },
+  "search_term": { "value": "iPhone" },
+  "target_currency": { "value": "Euro" },
+  "invalid_email": { "value": "shopper.at.example.com" },
+  "new_first_name": { "value": "Retail" },
+  "new_last_name": { "value": "Shopper" },
+  "new_telephone": { "value": "5550100123" }
+}
