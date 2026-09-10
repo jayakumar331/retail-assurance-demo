@@ -1,0 +1,318 @@
+name: Retail · Assurance & Evidence
+
+# Requirements -> designed tests -> executed proof -> coverage gate.
+# Every stage is kane-cli; nothing is hand-authored.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'requirements/**'
+      - '.testmuai/tests/**'
+      - '.github/workflows/retail-assurance-evidence.yml'
+  pull_request:
+    paths:
+      - 'requirements/**'
+      - '.testmuai/tests/**'
+  schedule:
+    - cron: '30 1 * * 1-5'      # 07:00 IST, weekdays
+  workflow_dispatch:
+    inputs:
+      max_pairs:
+        description: Max scenario+test pairs designed per use-case
+        default: '12'
+      coverage_threshold:
+        description: Minimum proven coverage %% before the build fails
+        default: '80'
+      force_design:
+        description: Redesign use-cases that already have a live design
+        type: boolean
+        default: false
+
+concurrency:
+  group: retail-assurance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  APP_URL: https://ecommerce-playground.lambdatest.io/
+  KANE_CLI_USER_AGENT: github-actions
+  MAX_PAIRS: ${{ inputs.max_pairs || '12' }}
+  COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold || '80' }}
+
+jobs:
+  # ===========================================================================
+  # 1 — ASSURANCE. The requirements document is the input; a committed context
+  #     graph and a set of designed *_test.md files are the output.
+  # ===========================================================================
+  assurance:
+    name: 1 · Assurance — requirements to designed tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      usecase_count: ${{ steps.design.outputs.usecase_count }}
+      test_count: ${{ steps.design.outputs.test_count }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-kane
+        with:
+          username: ${{ secrets.LT_USERNAME }}
+          access-key: ${{ secrets.LT_ACCESS_KEY }}
+          project-id: ${{ secrets.TESTMUAI_PROJECT_ID }}
+          folder-id: ${{ secrets.TESTMUAI_FOLDER_ID }}
+
+      # The graph is an append-only commit chain. Reusing it across runs means
+      # unchanged requirements are not re-extracted and not re-billed.
+      - name: Restore context graph
+        uses: actions/cache@v4
+        with:
+          path: .context
+          key: kane-context-${{ hashFiles('requirements/**') }}
+          restore-keys: kane-context-
+
+      - name: Point kane-cli at the storefront
+        run: kane-cli config set-url "$APP_URL"
+
+      - name: Ingest, extract, review, design
+        id: design
+        env:
+          REQ_GLOB: requirements/*.md
+          MAX_PAIRS: ${{ env.MAX_PAIRS }}
+          AUTO_APPROVE: 'true'
+          FORCE_DESIGN: ${{ inputs.force_design || 'false' }}
+        run: bash scripts/assurance.sh
+
+      - name: Assurance summary
+        if: always()
+        run: |
+          {
+            echo "## 1 · Assurance"
+            echo
+            echo "Source of truth: \`requirements/retail-storefront.md\`"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Live use-cases | ${{ steps.design.outputs.usecase_count || 0 }} |"
+            echo "| Designed tests | ${{ steps.design.outputs.test_count || 0 }} |"
+            echo
+            echo '<details><summary>Context graph nodes</summary>'
+            echo
+            echo '```'
+            kane-cli context list || true
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the graph and the designed tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assurance-graph-${{ github.run_number }}
+          path: |
+            .context/
+            .testmuai/tests/
+            usecases.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+  # ===========================================================================
+  # 2 — EVIDENCE. Run every designed test as ONE execution so the whole retail
+  #     suite seals into a single evidence pack. That pack is the buyer artifact.
+  # ===========================================================================
+  evidence:
+    name: 2 · Evidence — execute and seal the pack
+    needs: assurance
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      pack: ${{ steps.pack.outputs.path }}
+      status: ${{ steps.execute.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-kane
+        with:
+          username: ${{ secrets.LT_USERNAME }}
+          access-key: ${{ secrets.LT_ACCESS_KEY }}
+          project-id: ${{ secrets.TESTMUAI_PROJECT_ID }}
+          folder-id: ${{ secrets.TESTMUAI_FOLDER_ID }}
+
+      - name: Fetch the designed tests
+        uses: actions/download-artifact@v4
+        with:
+          name: assurance-graph-${{ github.run_number }}
+
+      - name: Collect members
+        id: members
+        run: |
+          set -euo pipefail
+          find .testmuai/tests -name '*_test.md' | sort > members.txt
+          echo "count=$(wc -l < members.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          cat members.txt
+
+      # Plan and validate before spending a browser minute.
+      - name: Preflight
+        run: |
+          set -euo pipefail
+          mapfile -t TESTS < members.txt
+          kane-cli testrun run "${TESTS[@]}" --dry-run \
+            --name "Retail preflight #${{ github.run_number }}"
+
+      - name: Execute the retail suite
+        id: execute
+        run: |
+          set -uo pipefail
+          mapfile -t TESTS < members.txt
+          kane-cli testrun run "${TESTS[@]}" \
+            --name "Retail regression #${{ github.run_number }} (${GITHUB_SHA:0:7})" \
+            --parallel 2 \
+            --on-failure continue \
+            --headless \
+            | tee testrun.ndjson
+          CODE=${PIPESTATUS[0]}
+          echo "status=$CODE" >> "$GITHUB_OUTPUT"
+          # A failing test still produces a valid pack — keep going and let the
+          # coverage gate decide. Only auth/infra (2) stops the pipeline here.
+          [ "$CODE" -eq 2 ] && exit 2
+          exit 0
+
+      - name: Locate the sealed pack
+        id: pack
+        run: |
+          set -euo pipefail
+          PACK=$(find .testmuai/evidence -name '*.evidence' -printf '%T@ %p\n' 2>/dev/null \
+                 | sort -rn | head -1 | cut -d' ' -f2-)
+          if [ -z "$PACK" ]; then
+            echo "::error title=No evidence pack::testrun produced no sealed pack."
+            exit 1
+          fi
+          echo "path=$PACK" >> "$GITHUB_OUTPUT"
+          ls -lh "$PACK"
+
+      # L1 validation: the pack is complete, internally consistent, and its
+      # step evidence matches what the run claims happened.
+      - name: Validate the pack
+        run: |
+          set -euo pipefail
+          kane-cli evidence validate "${{ steps.pack.outputs.path }}" \
+            --profile L1 --json | tee evidence-validation.json
+          {
+            echo "## 2 · Evidence"
+            echo
+            echo "Pack: \`$(basename "${{ steps.pack.outputs.path }}")\`  ·  L1 validated"
+            echo
+            echo "View it locally with:"
+            echo
+            echo '```bash'
+            echo "kane-cli evidence serve $(basename "${{ steps.pack.outputs.path }}")"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the evidence pack
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retail-evidence-${{ github.run_number }}
+          path: |
+            .testmuai/evidence/*.evidence
+            evidence-validation.json
+            testrun.ndjson
+          retention-days: 90
+          if-no-files-found: error
+
+  # ===========================================================================
+  # 3 — COVERAGE. Two axes: completeness owed by the graph, depth proven by the
+  #     pack. This is the stage that turns "tests passed" into "requirements met".
+  # ===========================================================================
+  coverage:
+    name: 3 · Coverage — designed vs proven
+    needs: [assurance, evidence]
+    if: always() && needs.evidence.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-kane
+        with:
+          username: ${{ secrets.LT_USERNAME }}
+          access-key: ${{ secrets.LT_ACCESS_KEY }}
+          project-id: ${{ secrets.TESTMUAI_PROJECT_ID }}
+          folder-id: ${{ secrets.TESTMUAI_FOLDER_ID }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: assurance-graph-${{ github.run_number }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: retail-evidence-${{ github.run_number }}
+          path: .testmuai/evidence
+
+      - name: Compute the coverage ribbon
+        run: |
+          set -euo pipefail
+          PACK=$(find .testmuai/evidence -name '*.evidence' | head -1)
+          echo "PACK=$PACK" >> "$GITHUB_ENV"
+          # --from belongs to `cover`, so it goes BEFORE the `gaps` subcommand.
+          kane-cli cover --from "$PACK" gaps --rollup strict            > coverage.txt || true
+          kane-cli cover --from "$PACK" gaps --rollup strict --json     > coverage.json || true
+          cat coverage.txt
+
+      - name: Gate on proven coverage
+        id: gate
+        run: |
+          python3 scripts/coverage_gate.py \
+            --json coverage.json \
+            --table coverage.txt \
+            --pack "$PACK" \
+            --threshold "$COVERAGE_THRESHOLD"
+
+      - name: Comment the ribbon on the PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const ribbon = fs.existsSync('coverage.txt')
+              ? fs.readFileSync('coverage.txt', 'utf8').trim()
+              : '(no ribbon produced)';
+            const gate = '${{ steps.gate.outcome }}' === 'success' ? '🟢 passed' : '🔴 below gate';
+            const body = [
+              '### Retail assurance — designed × proven',
+              '',
+              `Coverage gate: ${gate} (threshold ${process.env.COVERAGE_THRESHOLD}%)`,
+              `Use-cases: ${{ needs.assurance.outputs.usecase_count || 0 }} · Designed tests: ${{ needs.assurance.outputs.test_count || 0 }}`,
+              '',
+              '<details><summary>Coverage ribbon</summary>',
+              '',
+              '```',
+              ribbon,
+              '```',
+              '',
+              '</details>',
+              '',
+              `Evidence pack is attached to [run #${{ github.run_number }}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Publish the coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retail-coverage-${{ github.run_number }}
+          path: |
+            coverage.txt
+            coverage.json
+          retention-days: 30
+          if-no-files-found: warn

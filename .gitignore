@@ -1,0 +1,9 @@
+node_modules/
+.testmuai/evidence/
+.testmuai/sessions/
+.testmuai/variables/
+coverage.json
+coverage.txt
+testrun.ndjson
+members.txt
+usecases.txt

@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"After a valid add to cart, a success confirmation is shown.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"success confirmation after add to cart"}}}

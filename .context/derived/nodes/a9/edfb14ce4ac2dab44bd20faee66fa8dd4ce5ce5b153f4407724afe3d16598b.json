@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Activating the checkout entry point from a non-empty cart opens checkout.","kind":"state-transition","risk":"high","derived":true,"expected_answer":{"operator":"equals","baseline":"shopper is on the cart page with a non-empty basket","operand":"checkout is shown"}}}

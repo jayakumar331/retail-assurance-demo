@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Each order-summary total displayed at checkout equals the corresponding cart total captured immediately before checkout.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"forall","operand":"every order-summary total displayed at checkout equals the corresponding cart total captured immediately before checkout"}}}

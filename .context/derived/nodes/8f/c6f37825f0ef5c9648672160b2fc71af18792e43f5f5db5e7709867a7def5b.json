@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A product with required options is not added to the cart before all required options are selected.","kind":"forbidden-presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"successful add-to-cart completion before all required options are selected"}}}

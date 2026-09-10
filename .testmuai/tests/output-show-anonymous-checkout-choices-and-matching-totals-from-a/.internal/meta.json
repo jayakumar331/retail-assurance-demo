@@ -1,0 +1,24 @@
+{
+  "test_id": "7878f5e8-4f9e-4fa3-9b34-e5693d8c940a",
+  "project_id": "01KS4M1C2SEEHGQSKF6VRV91YE",
+  "folder_id": "01KS4M37CXEJ5YGC1BAX30HCZ2",
+  "org_id": "550422",
+  "session_name": "show-anonymous-checkout-choices-and-matching-totals-from-a",
+  "commit_id": "6b744ca9-abc8-406f-a24f-4ec19db2b37c",
+  "testcase_id": "01M25ATMR2VMRX7ZRQQXQRWN5Z",
+  "executions": [
+    {
+      "execution_id": "ef92cfd0-4d57-432a-a291-421e4be7d005",
+      "run_kind": "author",
+      "status": "failed",
+      "valid": true,
+      "at": "2026-09-10T09:42:04.833Z"
+    },
+    {
+      "execution_id": "5fa2ca44-31a5-4533-9307-99651f9ed247",
+      "run_kind": "author",
+      "status": "failed",
+      "at": "2026-09-10T09:42:16.589Z"
+    }
+  ]
+}

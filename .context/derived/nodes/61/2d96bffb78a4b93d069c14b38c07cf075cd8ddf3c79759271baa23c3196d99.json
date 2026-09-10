@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"From a non-empty cart, the checkout entry point is visible.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"checkout entry point on the cart page"}}}

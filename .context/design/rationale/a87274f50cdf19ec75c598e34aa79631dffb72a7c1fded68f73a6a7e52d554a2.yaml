@@ -1,0 +1,9 @@
+anchor: ac-13
+combinatorial:
+  reason: would suffice for display-only content, but no input combination model was needed because the path has no independent outcome-bearing inputs.
+  strength: 2
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: Derived from the REQ-03 product-detail display rule using eqp for a representative listed product; search-list and stateful-flow profiles were not applicable because this path starts from an existing listing result and asserts product-detail rendering rather than list semantics or a wizard; risk-judged strength=2 would suffice for display-only content, but no input combination model was needed because the path has no independent outcome-bearing inputs.

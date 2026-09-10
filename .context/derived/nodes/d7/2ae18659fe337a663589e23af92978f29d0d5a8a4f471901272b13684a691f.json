@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"When all required options are selected for a valid product, add to cart completes successfully.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"successful add-to-cart completion for the configured product"}}}

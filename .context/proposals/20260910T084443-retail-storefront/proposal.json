@@ -1,0 +1,364 @@
+{
+  "version": 1,
+  "read_basis": "sha256:e6635443132c88c18a128954f464f1bbbb852084e5f00e0217fe8dd9c6a15bdf",
+  "source": {
+    "source_id": "retail-storefront",
+    "source_cid": "sha256:6682ec004e51d22e428414df4e0cff8889cdee1c64ab4135faaf5b4388034ccf"
+  },
+  "use_cases": [
+    {
+      "temp_ref": "n1",
+      "title": "Begin checkout from the cart",
+      "description": "A shopper with a non-empty basket enters checkout from the cart, sees the available entry paths for an anonymous session, verifies that the checkout summary matches the cart totals, and can leave and return without losing basket contents.",
+      "summary": "Enter checkout with basket preserved.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Keeps the purchase journey reachable and intact at the point where revenue conversion begins.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L78-L78",
+        "quote": "Checkout must be reachable and must not lose the basket."
+      },
+      "criteria": [
+        {
+          "text": "From a non-empty cart, checkout entry is visible and clickable.",
+          "cite": {
+            "anchor": "L81-L81",
+            "quote": "From a non-empty cart, the checkout entry point is visible and clickable."
+          }
+        },
+        {
+          "text": "An anonymous shopper is offered guest checkout and register/login options at checkout.",
+          "cite": {
+            "anchor": "L82-L82",
+            "quote": "Checkout presents guest checkout and register/login options for an anonymous shopper."
+          }
+        },
+        {
+          "text": "The checkout order summary matches the cart totals exactly.",
+          "cite": {
+            "anchor": "L83-L83",
+            "quote": "The order summary at checkout matches the cart totals exactly."
+          }
+        },
+        {
+          "text": "Leaving checkout and returning preserves basket contents.",
+          "cite": {
+            "anchor": "L84-L84",
+            "quote": "Leaving checkout and returning preserves the basket contents."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n2",
+      "title": "Review product details and add an item to the cart",
+      "description": "A shopper opens a product detail page to inspect buying information, must satisfy any required option selections before adding, receives confirmation when a valid product is added, and expects the chosen quantity to carry into the cart exactly as entered.",
+      "summary": "Inspect a product and add it correctly.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Lets shoppers make a buying decision and place the intended item and quantity into the basket without corruption.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L42-L43",
+        "quote": "must add the correct item to the cart."
+      },
+      "cites": [
+        {
+          "anchor": "L42-L43",
+          "quote": "must add the correct item to the cart."
+        },
+        {
+          "anchor": "L42-L43",
+          "quote": "The product detail page must give a shopper enough to make a buying decision and"
+        }
+      ],
+      "criteria": [
+        {
+          "text": "Opening a product from a listing shows product name, price, availability, and a quantity field.",
+          "cite": {
+            "anchor": "L46-L47",
+            "quote": "Opening a product from a listing shows product name, price, availability and"
+          }
+        },
+        {
+          "text": "Products with required options cannot be added until the options are selected, and the missing option is identified to the shopper.",
+          "cite": {
+            "anchor": "L48-L49",
+            "quote": "Products with required options cannot be added to the cart until those options"
+          }
+        },
+        {
+          "text": "Adding a valid product updates the header cart total and shows a success confirmation.",
+          "cite": {
+            "anchor": "L50-L51",
+            "quote": "Adding a valid product updates the header cart total and shows a success"
+          }
+        },
+        {
+          "text": "Adding quantity N results in quantity N in the cart, not 1.",
+          "cite": {
+            "anchor": "L52-L52",
+            "quote": "Adding quantity N results in quantity N in the cart, not 1."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n3",
+      "title": "Manage cart contents",
+      "description": "A shopper reviews the cart as the authoritative basket state, sees each added product with its pricing and quantity details, changes quantities with totals recalculated correctly, and can remove the final item into an explicit empty-cart state instead of an error state.",
+      "summary": "Review and edit the cart accurately.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Protects basket integrity so shoppers can trust prices, quantities, and totals before checkout.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L56-L56",
+        "quote": "The cart must reflect exactly what the shopper chose, and must survive edits."
+      },
+      "criteria": [
+        {
+          "text": "The cart lists every added product with unit price, quantity, and line total.",
+          "cite": {
+            "anchor": "L59-L59",
+            "quote": "The cart page lists every added product with unit price, quantity and line total."
+          }
+        },
+        {
+          "text": "Each line total equals unit price times quantity.",
+          "cite": {
+            "anchor": "L60-L60",
+            "quote": "Line total equals unit price times quantity."
+          }
+        },
+        {
+          "text": "Updating quantity recalculates the line total and the order total.",
+          "cite": {
+            "anchor": "L61-L61",
+            "quote": "Updating a quantity recalculates the line total and the order total."
+          }
+        },
+        {
+          "text": "Removing the last item leaves the cart in an explicit empty state, not a broken page.",
+          "cite": {
+            "anchor": "L62-L62",
+            "quote": "Removing the last item leaves the cart in an explicit empty state, not a broken page."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n4",
+      "title": "Register a shopper account",
+      "description": "A new shopper submits registration details, is blocked on malformed email input or an unticked privacy policy with field-level errors and no account creation, and on valid unique details reaches an account-created confirmation state.",
+      "summary": "Create a new shopper account.",
+      "actors": [
+        "new shopper"
+      ],
+      "value": "Enables account-based shopping while preventing invalid or non-compliant registrations.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L66-L66",
+        "quote": "Returning shoppers must be able to authenticate; new shoppers must be able to register."
+      },
+      "criteria": [
+        {
+          "text": "Registration rejects a malformed email address and an unticked privacy policy with a field-level error, and does not create the account.",
+          "cite": {
+            "anchor": "L69-L70",
+            "quote": "Registration rejects a malformed email address and an unticked privacy policy"
+          }
+        },
+        {
+          "text": "Registration with valid unique details lands on an account-created confirmation.",
+          "cite": {
+            "anchor": "L71-L71",
+            "quote": "Registration with valid unique details lands on an account-created confirmation."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n5",
+      "title": "Sign in to a shopper account",
+      "description": "A returning shopper authenticates with existing credentials, receives a warning on wrong credentials without disclosure of whether the email exists, and on success sees signed-in account navigation in the header.",
+      "summary": "Authenticate as a returning shopper.",
+      "actors": [
+        "returning shopper"
+      ],
+      "value": "Restores account access securely without leaking account existence.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L66-L66",
+        "quote": "Returning shoppers must be able to authenticate; new shoppers must be able to register."
+      },
+      "criteria": [
+        {
+          "text": "Wrong credentials show a warning and do not reveal whether the email exists.",
+          "cite": {
+            "anchor": "L72-L73",
+            "quote": "Sign-in with wrong credentials shows a warning and does not reveal whether the"
+          }
+        },
+        {
+          "text": "A signed-in shopper sees account navigation \"My Account / Logout\" in the header.",
+          "cite": {
+            "anchor": "L74-L74",
+            "quote": "A signed-in shopper sees account navigation (My Account / Logout) in the header."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n6",
+      "title": "Search for a product by name",
+      "description": "A shopper enters a product name from any page, can access the search control in the header on home and category pages, receives structured results for matching terms, receives an explicit no-match message for unsuccessful terms, and can revisit or share the results by URL.",
+      "summary": "Find a product by name.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Helps shoppers quickly reach intended products without browsing through categories.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L16-L16",
+        "quote": "Shoppers must be able to find a product by name from any page."
+      },
+      "criteria": [
+        {
+          "text": "The search box is present in the header on the home page and on category pages.",
+          "cite": {
+            "anchor": "L19-L19",
+            "quote": "The search box is present in the header on the home page and on category pages."
+          }
+        },
+        {
+          "text": "A matching search returns at least one product tile, and each tile shows a product name and a price.",
+          "cite": {
+            "anchor": "L20-L21",
+            "quote": "least one product tile, and each tile shows a product name and a price."
+          }
+        },
+        {
+          "text": "A no-match search shows an explicit \"no product matches\" style message rather than an empty page or an error.",
+          "cite": {
+            "anchor": "L22-L23",
+            "quote": "Searching for a term with no matches shows an explicit \"no product matches\""
+          }
+        },
+        {
+          "text": "Search results are reachable via a shareable URL that includes the search term.",
+          "cite": {
+            "anchor": "L24-L24",
+            "quote": "- Search results are reachable via a shareable URL (the search term appears in"
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n7",
+      "title": "Browse and refine a product category",
+      "description": "A shopper opens a top-level category listing, confirms that products are actually presented, changes the sort order among the supported options, adjusts how many products are shown per page, and switches between grid and list presentation without losing the current product set on screen.",
+      "summary": "Browse a category and change result presentation.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Supports exploratory shopping by letting shoppers navigate categories and control how listings are displayed.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L29-L29",
+        "quote": "Shoppers must be able to browse a category and change how results are presented."
+      },
+      "criteria": [
+        {
+          "text": "A top-level category opens a listing page with a product count or product grid.",
+          "cite": {
+            "anchor": "L32-L33",
+            "quote": "product count or product grid."
+          }
+        },
+        {
+          "text": "The listing offers sort options for price low-high, name A-Z, and rating, and the first product changes when the sort order changes.",
+          "cite": {
+            "anchor": "L34-L35",
+            "quote": "The listing offers a sort control (price low-high, name A-Z, rating) and the"
+          }
+        },
+        {
+          "text": "The listing offers a \"show N per page\" control, and choosing a larger value increases the number of rendered tiles.",
+          "cite": {
+            "anchor": "L36-L37",
+            "quote": "The listing offers a \"show N per page\" control, and choosing a larger value"
+          }
+        },
+        {
+          "text": "Switching between grid and list view keeps the same products on screen.",
+          "cite": {
+            "anchor": "L38-L38",
+            "quote": "Switching between grid and list view keeps the same products on screen."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n8",
+      "title": "Switch displayed storefront currency",
+      "description": "A shopper changes the storefront currency and expects displayed prices to update consistently across the site rather than only on the current page.",
+      "summary": "Change displayed prices to another currency.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Improves price comprehension and trust for shoppers viewing the storefront in different currencies.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L92-L92",
+        "quote": "Currency switching updates displayed prices site-wide."
+      },
+      "criteria": [
+        {
+          "text": "Currency switching updates displayed prices site-wide.",
+          "cite": {
+            "anchor": "L92-L92",
+            "quote": "Currency switching updates displayed prices site-wide."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n9",
+      "title": "Subscribe to the storefront newsletter",
+      "description": "A shopper submits an email address to the newsletter or subscribe control, succeeds with a valid email value, and is rejected on an invalid email value instead of being silently accepted.",
+      "summary": "Submit an email for newsletter subscription.",
+      "actors": [
+        "shopper"
+      ],
+      "value": "Supports ongoing marketing reach while preventing obviously invalid subscriber data.",
+      "risk": "low",
+      "cite": {
+        "anchor": "L93-L93",
+        "quote": "The newsletter/subscribe control accepts a valid email and rejects an invalid one."
+      },
+      "criteria": [
+        {
+          "text": "The newsletter or subscribe control accepts a valid email and rejects an invalid one.",
+          "cite": {
+            "anchor": "L93-L93",
+            "quote": "The newsletter/subscribe control accepts a valid email and rejects an invalid one."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    }
+  ]
+}

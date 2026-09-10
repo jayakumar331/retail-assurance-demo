@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"When add to cart is attempted with a required option unselected, the shopper is told which option is missing.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"identification of the specific missing required option"}}}

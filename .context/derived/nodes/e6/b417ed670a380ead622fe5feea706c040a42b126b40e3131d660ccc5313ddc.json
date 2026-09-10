@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Opening a product from a listing shows a quantity field on the product detail page.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"quantity field on the product detail page"}}}

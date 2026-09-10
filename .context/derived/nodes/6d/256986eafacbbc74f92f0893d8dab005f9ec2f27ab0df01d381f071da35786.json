@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"After a valid add to cart, the header cart subtotal equals the cart subtotal.","kind":"propagation","risk":"high","derived":true,"expected_answer":{"operator":"equals","operand":"header cart subtotal equals the cart subtotal after the add"}}}

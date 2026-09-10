@@ -1,0 +1,24 @@
+{
+  "test_id": "b986cad3-52a5-4673-9a1d-f2dd328b3c21",
+  "project_id": "01KS4M1C2SEEHGQSKF6VRV91YE",
+  "folder_id": "01KS4M37CXEJ5YGC1BAX30HCZ2",
+  "org_id": "550422",
+  "session_name": "take-a-signed-in-shopper-directly-into-checkout-from-a-non",
+  "commit_id": "40eb2ff9-9573-4e87-b65c-d0d5de5ccfe3",
+  "testcase_id": "01M25B846T4278ANW1XD6R69GJ",
+  "executions": [
+    {
+      "execution_id": "991b8613-3a99-4826-9eb0-3fc3731e5b45",
+      "run_kind": "author",
+      "status": "passed",
+      "valid": true,
+      "at": "2026-09-10T09:50:43.857Z"
+    },
+    {
+      "execution_id": "0e253f12-1b20-43fe-8188-bdab95a7dda1",
+      "run_kind": "author",
+      "status": "passed",
+      "at": "2026-09-10T09:51:20.740Z"
+    }
+  ]
+}

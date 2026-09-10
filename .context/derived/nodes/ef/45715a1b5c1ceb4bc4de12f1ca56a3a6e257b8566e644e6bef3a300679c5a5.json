@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Opening a product from a listing shows the product price on the product detail page.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"product price on the product detail page"}}}

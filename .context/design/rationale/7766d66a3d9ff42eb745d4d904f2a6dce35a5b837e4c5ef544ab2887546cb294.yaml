@@ -1,0 +1,9 @@
+anchor: ac-10
+combinatorial:
+  reason: because the add-to-cart gate protects basket correctness, but no combinatorial expansion was needed because one representative invalid state proves the promised outcome.
+  strength: 3
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: Derived from the REQ-03 missing-option rule using negative/error technique plus eqp for the representative invalid state 'at least one required option missing'; bva not applicable because no option-count limits are specified; risk-judged strength=3 because the add-to-cart gate protects basket correctness, but no combinatorial expansion was needed because one representative invalid state proves the promised outcome.

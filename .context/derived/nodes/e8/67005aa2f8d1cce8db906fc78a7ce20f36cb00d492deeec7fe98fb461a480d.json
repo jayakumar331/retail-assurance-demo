@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"After a valid add to cart, the header cart item count reflects the previous count plus the entered quantity.","kind":"propagation","risk":"high","derived":true,"expected_answer":{"operator":"equals","operand":"header cart item count equals the previous cart item count plus the entered quantity"}}}

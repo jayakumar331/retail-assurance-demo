@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Checkout shows a register/login option to an anonymous shopper.","kind":"presence","risk":"high","derived":true,"expected_answer":{"operator":"exists","operand":"register/login option"}}}

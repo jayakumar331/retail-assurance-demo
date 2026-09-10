@@ -1,0 +1,9 @@
+anchor: ac-8
+combinatorial:
+  reason: because money applies, but no combinatorial expansion was needed because the path has one outcome-bearing representative combination.
+  strength: 3
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: 'Derived from happy-path reading of retail-storefront REQ-03 with techniques: eqp for a valid configured product and a valid non-1 quantity representative; state_flow not applicable because the source does not define a gated multi-step wizard; bva considered but not applied because the source gives no quantity bounds and the owner chose valid-quantity coverage only for now; risk-judged strength=3 because money applies, but no combinatorial expansion was needed because the path has one outcome-bearing representative combination.'

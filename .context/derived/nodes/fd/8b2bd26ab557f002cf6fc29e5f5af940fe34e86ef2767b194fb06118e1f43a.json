@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"When a shopper adds quantity N for a valid product, the cart quantity equals the entered N.","kind":"propagation","risk":"high","derived":true,"expected_answer":{"operator":"equals","operand":"cart quantity matches the quantity entered on the product detail page"}}}
