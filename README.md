@@ -90,12 +90,19 @@ Three things worth pointing at during a demo:
 - **Exit code 3 is not a failure.** It means the agent paused on a question it could not assume
   past, and the session is resumable — `kane-cli context extract --resume <sid> --message "..."`.
   `scripts/assurance.sh` surfaces that as a GitHub warning with the session id rather than a red X.
-- **The graph is cached on the requirements hash.** Unchanged requirements are not re-extracted
-  and not re-billed. Change one line in the PRD and only that source re-extracts.
-- **A use-case that is already fully designed is skipped.** `kane-cli cover gaps --stage design`
-  (local, no model call) says which use-cases are complete; designing one again would re-ground,
-  commit nothing, and fail. Run with `force_design` to redesign on purpose. A design failure on
-  one use-case no longer stops the others; the stage still fails at the end.
+- **The graph is cached between runs.** Unchanged requirements are not re-extracted and not
+  re-billed. Change one line in the PRD and only that source re-extracts. Every run saves a new
+  cache entry, and the designed `*_test.md` files travel with the graph (`.kane-state/`):
+  kane-cli cannot rebuild a test file from the graph, so without them a designed test never runs.
+- **Only undesigned use-cases are designed.** `kane-cli cover gaps --stage design` (local, no
+  model call) rates each use-case undesigned, partial or complete. Designing a partial or complete
+  one again is a redesign — in CI the agent reworks the suite or decides nothing is missing and
+  fails with "nothing committed", on every run, paid each time. Gaps in a partial design stay in
+  the coverage ribbon; fill them locally with `kane-cli design tests`, or run with `force_design`.
+  kane-cli also refuses, for free and before any model call, a use-case that has a design record
+  (`'uc-1' is already designed @ v1 — use --force to redesign`, exit 2) even when `cover gaps`
+  still rates it undesigned; the pipeline reads that refusal as "already designed", not a failure.
+  A design failure on one use-case no longer stops the others; the stage still fails at the end.
 
 For a governed setup, flip `AUTO_APPROVE` to `false`: derived use-cases stay in the review queue,
 a human runs `kane-cli context review` locally, and `.context/` gets committed to the repo. The

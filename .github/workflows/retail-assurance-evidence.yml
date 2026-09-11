@@ -67,12 +67,21 @@ jobs:
 
       # The graph is an append-only commit chain. Reusing it across runs means
       # unchanged requirements are not re-extracted and not re-billed.
+      # .kane-state holds the designed *_test.md files (see scripts/assurance.sh):
+      # kane-cli cannot rebuild them from the graph, so they travel with it.
+      # One entry per run, newest restored — a fixed key is written once and then
+      # never updated, so later designs were lost. `v2` deliberately does not
+      # restore the old `.context`-only entries, whose tests have no files.
       - name: Restore context graph
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: .context
-          key: kane-context-${{ hashFiles('requirements/**') }}
-          restore-keys: kane-context-
+          path: |
+            .context
+            .kane-state
+          key: kane-assurance-v2-${{ hashFiles('requirements/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            kane-assurance-v2-${{ hashFiles('requirements/**') }}-
+            kane-assurance-v2-
 
       - name: Point kane-cli at the storefront
         run: kane-cli config set-url "$APP_URL"
@@ -85,6 +94,20 @@ jobs:
           AUTO_APPROVE: 'true'
           FORCE_DESIGN: ${{ inputs.force_design || 'false' }}
         run: bash scripts/assurance.sh
+
+      # Saved even when a use-case failed to design: the graph is append-only and a
+      # failed session commits nothing, so what did land must not be lost. Not on
+      # cancel, when a write may have been cut short.
+      - name: Save context graph
+        # !cancelled() is required: without a status function GitHub prepends
+        # success() and the save would be skipped exactly when design failed.
+        if: ${{ !cancelled() && (steps.design.outcome == 'success' || steps.design.outcome == 'failure') }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .context
+            .kane-state
+          key: kane-assurance-v2-${{ hashFiles('requirements/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Assurance summary
         if: always()
@@ -228,7 +251,9 @@ jobs:
         id: pack
         run: |
           set -euo pipefail
-          PACK=$(find .testmuai/evidence -name '*.evidence' -printf '%T@ %p\n' 2>/dev/null \
+          # `|| true`: with pipefail a missing evidence dir would abort here,
+          # before the error below says what actually went wrong.
+          PACK=$( { find .testmuai/evidence -name '*.evidence' -printf '%T@ %p\n' 2>/dev/null || true; } \
                  | sort -rn | head -1 | cut -d' ' -f2-)
           if [ -z "$PACK" ]; then
             echo "::error title=No evidence pack::testrun produced no sealed pack."
@@ -266,7 +291,9 @@ jobs:
             evidence-validation.json
             testrun.ndjson
           retention-days: 90
-          if-no-files-found: error
+          # warn: when no pack exists, "Locate the sealed pack" (or an earlier step)
+          # has already failed the job with the real reason.
+          if-no-files-found: warn
 
   # ===========================================================================
   # 3 — COVERAGE. Two axes: completeness owed by the graph, depth proven by the
@@ -275,7 +302,9 @@ jobs:
   coverage:
     name: 3 · Coverage — designed vs proven
     needs: [assurance, evidence]
-    if: always() && needs.evidence.result != 'skipped'
+    # Only when a sealed pack exists: without one there is nothing to measure,
+    # and the artifact download fails with a misleading "artifact not found".
+    if: always() && needs.evidence.outputs.pack != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

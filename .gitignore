@@ -7,3 +7,4 @@ coverage.txt
 testrun.ndjson
 members.txt
 usecases.txt
+.kane-state/

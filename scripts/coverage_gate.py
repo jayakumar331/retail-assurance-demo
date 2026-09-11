@@ -8,10 +8,13 @@ Two axes come back from the coverage ribbon:
 
 The gate fails the build when the proven axis drops below --threshold.
 
-The JSON document is nested and its exact shape is version-dependent, so this
-walks it defensively: it looks for the usual counter names anywhere in the tree
-and falls back to the plain-text ribbon if it cannot find them. It never fails
-the build because it failed to *parse* — only because coverage was genuinely low.
+kane-cli 0.8.2+ emits a documented shape (`rollup_version: 1`): top-level
+`design_completeness.pct`, a `proven` object whose `pct` is the proven share of
+the current live ACs, and per-use-case `design_completeness` / `proven`. `proven`
+is absent when the pack recorded no run of a designed test — nothing is proven,
+so that counts as 0%. Any other shape is walked defensively for the usual
+counter names, as before. It never fails the build because it failed to *parse*
+— only because coverage was genuinely low.
 """
 
 from __future__ import annotations
@@ -92,6 +95,50 @@ def find_totals(node, acc: list) -> None:
             find_totals(item, acc)
 
 
+def number(value) -> float:
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
+
+
+def gate_rollup_v1(doc: dict, lines: list, threshold: float) -> int:
+    """Gate on the documented rollup: proven.pct against the threshold."""
+    proven = doc.get("proven") if isinstance(doc.get("proven"), dict) else None
+    design = doc.get("design_completeness") or {}
+
+    rows = []
+    for uc in doc.get("usecases") or []:
+        if not isinstance(uc, dict):
+            continue
+        d = uc.get("design_completeness") or {}
+        p = uc.get("proven") if isinstance(uc.get("proven"), dict) else None
+        label = uc.get("id") or uc.get("title") or "?"
+        designed = f"{number(d.get('pct')):.0f}% {d.get('status', '')}"
+        proven_cell = f"{number(p.get('pct')):.0f}% {p.get('status', '')}" if p else "—"
+        rows.append(f"| {label} | {designed} | {proven_cell} |")
+    if rows:
+        lines += ["| Use-case | Designed | Proven |", "|---|---|---|", *rows, ""]
+
+    lines.append(f"Designed: {number(design.get('pct')):.0f}% of ACs ({design.get('acs_designed', '?')}).")
+    if proven is None:
+        pct = 0.0
+        lines.append("Proven: the evidence pack recorded no run of a designed test, so nothing is proven.")
+    else:
+        pct = number(proven.get("pct"))
+        extras = ", ".join(
+            f"{number(proven.get(k)):.0f} {k.replace('_', ' ')}"
+            for k in ("failing", "blocked", "not_run")
+            if proven.get(k) is not None
+        )
+        lines.append(f"Proven: {proven.get('acs_proven', '?')} ACs{f' — {extras}' if extras else ''}.")
+
+    passed = pct >= threshold
+    lines += ["", f"{'🟢' if passed else '🔴'} **Proven {pct:.1f}%** against a {threshold:.0f}% gate.", ""]
+    write_summary("\n".join(lines))
+    if not passed:
+        print(f"::error title=Coverage below gate::Proven coverage {pct:.1f}% is under the {threshold:.0f}% threshold.")
+        return 1
+    return 0
+
+
 def write_summary(text: str) -> None:
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if path:
@@ -120,6 +167,9 @@ def main() -> int:
             lines += ["<details><summary>Coverage ribbon</summary>", "", "```", ribbon, "```", "", "</details>", ""]
 
     doc = load(args.json)
+    if isinstance(doc, dict) and doc.get("rollup_version") == 1 and isinstance(doc.get("design_completeness"), dict):
+        return gate_rollup_v1(doc, lines, args.threshold)
+
     rows: list = []
     if doc is not None:
         find_totals(doc, rows)
