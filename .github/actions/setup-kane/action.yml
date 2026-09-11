@@ -5,7 +5,9 @@ inputs:
   version:
     description: npm version/tag of @testmuai/kane-cli to install.
     required: false
-    default: latest
+    # Pinned so a new release cannot change design/testrun behaviour mid-demo.
+    # 0.8.11 releases a failed run's test locks (older builds left later runs readonly).
+    default: '0.8.11'
   username:
     description: TestMu AI / LambdaTest username.
     required: true

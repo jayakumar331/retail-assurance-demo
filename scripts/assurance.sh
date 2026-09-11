@@ -8,7 +8,9 @@
 #
 #   0  done
 #   3  paused and resumable  (the agent had a question it could not assume past)
-#   2  auth / infra problem
+#   2  refused before doing work — usage error, a design gate (e.g. an unreviewed
+#      use-case), or auth/infra. setup-kane has already proved the credentials,
+#      so the refusal message in the log is the thing to read.
 #
 # Exit 3 is not a crash. The session id is preserved under .context/sessions/ and
 # a human resumes it locally with:
@@ -24,30 +26,29 @@ FORCE_DESIGN="${FORCE_DESIGN:-false}"
 
 step() { printf '\n\033[1m▸ %s\033[0m\n' "$1"; }
 
-# Wrapper that treats exit 3 as "paused", not "failed".
+# Runs one assurance command, annotates its outcome, and returns its exit code.
+# It never exits the script (an `exit` here used to end the whole run from inside
+# a loop): each stage decides what a non-zero code means for it. Call it as
+# `run_assurance ... || code=$?` so `set -e` does not fire on a paused/failed run.
 run_assurance() {
   local label="$1"; shift
-  set +e
-  "$@"
-  local code=$?
-  set -e
+  local code=0
+  "$@" || code=$?
   case "$code" in
-    0) return 0 ;;
+    0) ;;
     3)
       echo "::warning title=Assurance paused::${label} paused with an open question."
       echo "PAUSED_STAGE=${label}" >> "${GITHUB_ENV:-/dev/null}"
       kane-cli context sessions || true
-      return 3
       ;;
     2)
-      echo "::error title=Auth/infra::${label} could not reach TestMu AI. Check LT_USERNAME / LT_ACCESS_KEY."
-      exit 2
+      echo "::error title=Assurance refused::${label} exited 2 — a usage error, a design gate, or auth/infra. The refusal and its next step are in the log above."
       ;;
     *)
       echo "::error title=Assurance failed::${label} exited ${code}."
-      exit "$code"
       ;;
   esac
+  return "$code"
 }
 
 # ---------------------------------------------------------------------------
@@ -58,7 +59,13 @@ kane-cli context ingest $REQ_GLOB --mode ci
 
 # ---------------------------------------------------------------------------
 step "2/5  Extract use-cases from the ingested sources"
-run_assurance "context extract" kane-cli context extract --mode ci || true
+EXTRACT_CODE=0
+run_assurance "context extract" kane-cli context extract --mode ci || EXTRACT_CODE=$?
+# Paused is fine — what was committed before the question is still designable.
+# Anything else stops here: without use-cases there is nothing to design.
+if [ "$EXTRACT_CODE" -ne 0 ] && [ "$EXTRACT_CODE" -ne 3 ]; then
+  exit "$EXTRACT_CODE"
+fi
 
 # ---------------------------------------------------------------------------
 step "3/5  Approve derived use-cases (the human gate)"
@@ -87,18 +94,68 @@ step "4/5  Design acceptance criteria, scenarios and 1:1 tests per use-case"
 DESIGN_ARGS=(--mode ci --max "$MAX_PAIRS")
 [ "$FORCE_DESIGN" = "true" ] && DESIGN_ARGS+=(--force)
 
+# A use-case whose design is already complete has nothing left to design: the
+# session re-grounds (spending credits), commits nothing, and exits non-zero.
+# Skip those unless a redesign was asked for. `cover gaps` only reads the local
+# graph — no model call. If it fails or its shape changes, COMPLETE stays empty
+# and every use-case is designed exactly as before.
+COMPLETE=()
+if [ "$FORCE_DESIGN" != "true" ]; then
+  mapfile -t COMPLETE < <(kane-cli cover gaps --stage design --json 2>/dev/null \
+    | jq -r '.usecases[]? | select(.design_completeness.status == "complete" and (.stale_acs // 0) == 0) | .id' 2>/dev/null \
+    || true)
+fi
+
+SKIPPED=(); PAUSED=(); FAILED=()
 for uc in "${USECASES[@]}"; do
+  if [[ " ${COMPLETE[*]} " == *" ${uc} "* ]]; then
+    echo "Skipping ${uc}: its design is already complete (run with force_design to redesign)."
+    SKIPPED+=("$uc")
+    continue
+  fi
   step "    designing ${uc}"
+  code=0
   run_assurance "design tests (${uc})" \
-    kane-cli design tests --use-case "$uc" "${DESIGN_ARGS[@]}" || true
+    kane-cli design tests --use-case "$uc" "${DESIGN_ARGS[@]}" || code=$?
+  case "$code" in
+    0) ;;
+    3) PAUSED+=("$uc") ;;
+    *) FAILED+=("$uc") ;;
+  esac
 done
+echo "Design: $(( ${#USECASES[@]} - ${#SKIPPED[@]} - ${#PAUSED[@]} - ${#FAILED[@]} )) designed," \
+     "${#SKIPPED[@]} already complete, ${#PAUSED[@]} paused, ${#FAILED[@]} failed."
 
 # ---------------------------------------------------------------------------
 step "5/5  Verify the commit chain and report what was produced"
 # fsck proves the graph is internally consistent — the audit story for the buyer.
 kane-cli context fsck || echo "::warning::context fsck reported drift; see the log."
 
-TEST_COUNT=$(find .testmuai/tests -name '*_test.md' 2>/dev/null | wc -l | tr -d ' ')
+# A designed test lives twice: as a node in the graph and as a *_test.md file
+# carrying `assurance: id:` in its frontmatter. The graph is cached between runs;
+# the files are only there if committed. A use-case skipped above therefore runs
+# its tests only if their files are in the repo — say so instead of quietly
+# running a smaller suite.
+mapfile -t GRAPH_TESTS < <(kane-cli context list --json 2>/dev/null \
+  | jq -r 'select(.label == "test") | .id' 2>/dev/null || true)
+ON_DISK=" $( { find .testmuai/tests -name '*_test.md' -exec awk '
+    FNR == 1 { fm = 0; blk = "" }
+    { sub(/\r$/, "") }
+    /^---[[:space:]]*$/ { fm++; next }
+    fm == 1 && /^[^[:space:]]/ { blk = $1 }
+    fm == 1 && blk == "assurance:" && $1 == "id:" { print $2 }
+  ' {} + 2>/dev/null || true; } | tr '\n' ' ') "
+MISSING=()
+for t in "${GRAPH_TESTS[@]}"; do
+  [[ "$ON_DISK" == *" ${t} "* ]] || MISSING+=("$t")
+done
+if [ "${#MISSING[@]}" -gt 0 ]; then
+  echo "::warning title=Designed tests not on disk::${#MISSING[@]} test(s) in the graph have no *_test.md in this checkout and will not run: ${MISSING[*]}. Commit .testmuai/tests/ from the run that designed them, or redesign with force_design."
+fi
+
+# `|| true`: with pipefail a missing tests dir would otherwise abort here, before
+# the outputs and the "No tests designed" error below.
+TEST_COUNT=$( { find .testmuai/tests -name '*_test.md' 2>/dev/null || true; } | wc -l | tr -d ' ')
 echo "Designed test files on disk: ${TEST_COUNT}"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
@@ -110,5 +167,12 @@ fi
 
 if [ "$TEST_COUNT" -eq 0 ]; then
   echo "::error title=No tests designed::Design produced no *_test.md files."
+  exit 1
+fi
+
+# Every use-case has had its turn and the outputs above are written; a design
+# failure still fails the stage, as it always has.
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  echo "::error title=Design failed::${#FAILED[@]} use-case(s) failed to design: ${FAILED[*]}."
   exit 1
 fi

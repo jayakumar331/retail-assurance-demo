@@ -92,6 +92,10 @@ Three things worth pointing at during a demo:
   `scripts/assurance.sh` surfaces that as a GitHub warning with the session id rather than a red X.
 - **The graph is cached on the requirements hash.** Unchanged requirements are not re-extracted
   and not re-billed. Change one line in the PRD and only that source re-extracts.
+- **A use-case that is already fully designed is skipped.** `kane-cli cover gaps --stage design`
+  (local, no model call) says which use-cases are complete; designing one again would re-ground,
+  commit nothing, and fail. Run with `force_design` to redesign on purpose. A design failure on
+  one use-case no longer stops the others; the stage still fails at the end.
 
 For a governed setup, flip `AUTO_APPROVE` to `false`: derived use-cases stay in the review queue,
 a human runs `kane-cli context review` locally, and `.context/` gets committed to the repo. The
@@ -186,5 +190,8 @@ That derivation is the demo.
 
 ---
 
-**Note on flags:** command surface verified against `@testmuai/kane-cli@0.8.10`. Run
-`kane-cli changelog` if a flag behaves differently on a newer build.
+**Note on flags:** command surface verified against `@testmuai/kane-cli@0.8.10`; the commands
+the design-skip logic reads (`cover gaps --stage design --json`, `context list --json`) were
+re-checked on `0.8.11`.
+CI installs the version pinned in `.github/actions/setup-kane/action.yml` (`version` input,
+currently `0.8.11`); bump it deliberately and run `kane-cli changelog` first.
