@@ -140,6 +140,10 @@ jobs:
             .context/
             .testmuai/tests/
             usecases.txt
+          # Required: upload-artifact skips any path whose name starts with a dot,
+          # so without it `.context/` was silently left out and the later jobs
+          # fell back to the graph committed in the repo.
+          include-hidden-files: true
           retention-days: 30
           if-no-files-found: warn
 
@@ -247,6 +251,19 @@ jobs:
           path: .testmuai/tests/output-*
           key: kane-recordings-${{ github.run_id }}-${{ github.run_attempt }}
 
+      # After the suite, testrun writes every member's verdict into .context/ as
+      # execution facts — that is what `kane-cli cover` counts as proven. This
+      # job's graph is the only one that holds them, so hand it to coverage.
+      - name: Publish the executed graph
+        if: always() && steps.execute.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: assurance-graph-executed-${{ github.run_number }}
+          path: .context/
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+
       - name: Locate the sealed pack
         id: pack
         run: |
@@ -317,9 +334,13 @@ jobs:
           project-id: ${{ secrets.TESTMUAI_PROJECT_ID }}
           folder-id: ${{ secrets.TESTMUAI_FOLDER_ID }}
 
-      - uses: actions/download-artifact@v4
+      # The graph as it stood after the suite ran: the designs plus the execution
+      # facts. The pre-run assurance graph has no runs, so it always proved 0%.
+      - name: Fetch the executed graph
+        uses: actions/download-artifact@v4
         with:
-          name: assurance-graph-${{ github.run_number }}
+          name: assurance-graph-executed-${{ github.run_number }}
+          path: .context
 
       - uses: actions/download-artifact@v4
         with:
