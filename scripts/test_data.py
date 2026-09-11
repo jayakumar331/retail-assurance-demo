@@ -41,6 +41,8 @@ SECRET_HINTS = {
     "registered_password": "RETAIL_SHOPPER_PASSWORD",
     "existing_email": "RETAIL_SHOPPER_EMAIL",
     "existing_password": "RETAIL_SHOPPER_PASSWORD",
+    "existing_shopper_email": "RETAIL_SHOPPER_EMAIL",
+    "existing_shopper_password": "RETAIL_SHOPPER_PASSWORD",
 }
 
 PLACEHOLDER = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.[^}]*)?\s*\}\}")
@@ -66,7 +68,7 @@ def provision() -> int:
     email = os.environ.get("RETAIL_SHOPPER_EMAIL", "").strip()
     password = os.environ.get("RETAIL_SHOPPER_PASSWORD", "")
     if email and password:
-        for prefix in ("registered", "existing"):
+        for prefix in ("registered", "existing", "existing_shopper"):
             variables[f"{prefix}_email"] = {"value": email}
             variables[f"{prefix}_password"] = {"value": password, "secret": True}
     else:
@@ -88,14 +90,18 @@ def provision() -> int:
     variables["valid_newsletter_email"] = {"value": newsletter_email}
     # Never registered by anyone: the unknown-email sign-in test needs that guarantee.
     variables["unknown_email"] = {"value": f"retail.unknown.{tag}@example.com"}
+    # Each registration test gets its own never-used address, so none collides with
+    # another test's account in the same run.
+    variables["success_unique_email"] = {"value": f"retail.success.{tag}@example.com"}
+    variables["privacy_reject_unique_email"] = {"value": f"retail.privacy.{tag}@example.com"}
     # One variable standing for the whole form. No privacy-policy choice here: the
     # tests that use it decide that themselves. Secret because it carries the password.
     first, last, phone = (variables[k]["value"] for k in ("new_first_name", "new_last_name", "new_telephone"))
-    variables["valid_registration_details"] = {
-        "value": (f"First Name: {first}; Last Name: {last}; E-Mail: {new_email}; "
-                  f"Telephone: {phone}; Password: {new_password}; Password Confirm: {new_password}"),
-        "secret": True,
-    }
+    form = f"First Name: {first}; Last Name: {last}; Telephone: {phone}; " \
+           f"Password: {new_password}; Password Confirm: {new_password}"
+    variables["valid_registration_details"] = {"value": f"{form}; E-Mail: {new_email}", "secret": True}
+    # The same form for tests that supply their own email variable.
+    variables["valid_registration_details_except_email"] = {"value": form, "secret": True}
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(variables, indent=2) + "\n", encoding="utf-8")

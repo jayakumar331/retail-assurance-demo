@@ -5,6 +5,8 @@
   "valid_quantity_n": { "value": "3" },
   "search_term": { "value": "iPhone" },
   "no_match_term": { "value": "zzqxv" },
+  "no_match_search_term": { "value": "zzqxv" },
+  "category_name": { "value": "Cameras" },
   "target_currency": { "value": "Euro" },
   "cart_product_a": { "value": "HTC Touch HD" },
   "cart_product_b": { "value": "iPod Nano" },
