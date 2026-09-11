@@ -39,6 +39,8 @@ VARIABLE_DIRS = (Path.home() / ".testmuai/kaneai/variables", Path(".testmuai/var
 SECRET_HINTS = {
     "registered_email": "RETAIL_SHOPPER_EMAIL",
     "registered_password": "RETAIL_SHOPPER_PASSWORD",
+    "existing_email": "RETAIL_SHOPPER_EMAIL",
+    "existing_password": "RETAIL_SHOPPER_PASSWORD",
 }
 
 PLACEHOLDER = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.[^}]*)?\s*\}\}")
@@ -54,12 +56,19 @@ def provision() -> int:
 
     if os.environ.get("APP_URL"):
         variables["start_url"] = {"value": os.environ["APP_URL"]}
+        # The storefront has no newsletter email field on any page (only a Yes/No radio
+        # on registration), so there is no truer URL than the storefront itself: the
+        # newsletter tests run and report the missing control instead of never running.
+        variables["newsletter_page_url"] = {"value": os.environ["APP_URL"]}
 
+    # Design names the one shopper account differently per use-case; every name is
+    # the same account, so the values can never drift apart.
     email = os.environ.get("RETAIL_SHOPPER_EMAIL", "").strip()
     password = os.environ.get("RETAIL_SHOPPER_PASSWORD", "")
     if email and password:
-        variables["registered_email"] = {"value": email}
-        variables["registered_password"] = {"value": password, "secret": True}
+        for prefix in ("registered", "existing"):
+            variables[f"{prefix}_email"] = {"value": email}
+            variables[f"{prefix}_password"] = {"value": password, "secret": True}
     else:
         print("::warning title=No shopper account::RETAIL_SHOPPER_EMAIL / RETAIL_SHOPPER_PASSWORD "
               "are not set; sign-in tests have no credentials.")
@@ -71,9 +80,22 @@ def provision() -> int:
     new_password = "Rt!" + secrets.token_urlsafe(9)
     if in_actions():
         print(f"::add-mask::{new_password}")
-    variables["new_email"] = {"value": f"retail.ci.{tag}@example.com"}
+    new_email = f"retail.ci.{tag}@example.com"
+    newsletter_email = f"retail.news.{tag}@example.com"
+    variables["new_email"] = {"value": new_email}
     variables["new_password"] = {"value": new_password, "secret": True}
-    variables["newsletter_email"] = {"value": f"retail.news.{tag}@example.com"}
+    variables["newsletter_email"] = {"value": newsletter_email}
+    variables["valid_newsletter_email"] = {"value": newsletter_email}
+    # Never registered by anyone: the unknown-email sign-in test needs that guarantee.
+    variables["unknown_email"] = {"value": f"retail.unknown.{tag}@example.com"}
+    # One variable standing for the whole form. No privacy-policy choice here: the
+    # tests that use it decide that themselves. Secret because it carries the password.
+    first, last, phone = (variables[k]["value"] for k in ("new_first_name", "new_last_name", "new_telephone"))
+    variables["valid_registration_details"] = {
+        "value": (f"First Name: {first}; Last Name: {last}; E-Mail: {new_email}; "
+                  f"Telephone: {phone}; Password: {new_password}; Password Confirm: {new_password}"),
+        "secret": True,
+    }
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(variables, indent=2) + "\n", encoding="utf-8")
